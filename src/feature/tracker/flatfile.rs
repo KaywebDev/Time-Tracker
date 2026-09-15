@@ -6,7 +6,7 @@
 // - "lockfile": Tracker is running
 // - "database file": JSON doc (records)
 
-use std::{fs::OpenOptions, io::{Read, Write}, path::{Path, PathBuf}};
+use std::{fs::{File, OpenOptions}, io::{Read, Write}, path::{Path, PathBuf}};
 use error_stack::{Result, ResultExt};
 use serde::{Deserialize, Serialize};
 
@@ -36,7 +36,7 @@ fn read_lockfile<P>(lock_file: P) -> Result<LockFileData, FlatFileTrackerError>
 where
     P: AsRef<Path>,
 {
-    let file = OpenOptions::new()
+    let file: File = OpenOptions::new()
         .read(true)
         .open(lock_file.as_ref())
         .change_context(FlatFileTrackerError)
@@ -140,7 +140,7 @@ impl FlatFileTracker {
         let start_time: StartTime = read_lockfile(&self.lock_file)?.start_time;
         let end_time: EndTime = EndTime::now();
         let time_record: TimeRecord = TimeRecord { start: start_time, end: end_time };
-        let mut db = load_database(&self.db_file)?;
+        let mut db: FlatFileDatabase = load_database(&self.db_file)?;
         
         db.push(time_record);
         save_database(&self.db_file, &db)
@@ -168,7 +168,7 @@ impl Tracker for FlatFileTracker {
     }
 
     fn records(&self) -> Result<impl Iterator<Item = TimeRecord>, TrackerError> {
-        let db = load_database(&self.db_file)
+        let db: FlatFileDatabase = load_database(&self.db_file)
             .change_context(TrackerError)
             .attach_printable("Unable to load database when fetching records")?;
         Ok(db.records.into_iter())
@@ -266,7 +266,7 @@ mod tests {
         let mut tracker: FlatFileTracker = new_flatfile_tracker(&db_file, &lock_file);
 
         // When the tracker starts for the first time
-        let started = tracker.start().unwrap();
+        let started: StartupStatus = tracker.start().unwrap();
 
         // Then it should return a started status
         assert_eq!(started, StartupStatus::Started);
@@ -279,7 +279,7 @@ mod tests {
         tracker.start().unwrap();
 
         // When the tracker starts again
-        let started = tracker.start().unwrap();
+        let started: StartupStatus = tracker.start().unwrap();
         
 
         // Then starting again should return an already running state
